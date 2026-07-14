@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <title>사다리 미끄러짐 임계각 수학적 시뮬레이터</title>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #0f172a; margin-bottom: 5px; }
@@ -43,14 +55,15 @@
             <div class="data-box">
                 <div>• $\sin\theta$ (수직 벽 반력 관련): <span id="dataSin">0.0000</span></div>
                 <div>• $\cos\theta$ (바닥 마찰력 관련): <span id="dataCos">0.0000</span></div>
-                <div>• 현재 $\tan\theta$ ($\sin\theta / \cos\theta$): <span id="dataTan">0.0000</span></div>
-                <div>• <b>미끄러짐 임계 조건 ($\frac{1}{2\mu}$):</b> <span id="dataLimit">0.0000</span></div>
+                <div>• 현재 $\tan\theta$: <span id="dataTan">0.0000</span></div>
+                <div>• <b>임계 마찰 조건 ($\frac{1}{2\mu}$):</b> <span id="dataLimit">0.0000</span></div>
             </div>
 
             <div class="math-note">
                 <h4>💡 세특용 수학적 해석 포인트</h4>
-                <p><b>1. 탄젠트($\tan\theta$)의 조건 도출:</b> 사다리에 작용하는 알짜힘과 토크(돌림힘)가 0인 정역학적 평형 상태를 수식화하면, 미끄러지지 않을 극한 조건은 <b>$\tan\theta \ge \frac{1}{2\mu}$</b>로 귀결됩니다.</p>
-                <p><b>2. 모델의 한계 및 확장:</b> 본 모델은 벽면의 마찰을 0으로 가정한 이상적 모델입니다. 실제 환경에서는 벽면 마찰력도 존재하므로 임계 각도가 더 낮아질 것이라는 '모델의 한계 분석'을 보고서에 추가할 수 있습니다.</p>
+                <p><b>1. 탄젠트($\tan\theta$)의 조건 도출:</b> 사다리에 작용하는 알짜힘과 토크(돌림힘)가 $0$인 정역학적 평형 상태를 수식화하면, 미끄러지지 않을 극한 조건은 아래와 같이 귀결됩니다.</p>
+                <p style="text-align: center; font-size: 16px;">$$\tan\theta \ge \frac{1}{2\mu}$$</p>
+                <p><b>2. 모델의 한계 및 확장:</b> 본 모델은 벽면의 마찰을 $0$으로 가정한 이상적 모델입니다. 실제 환경에서는 벽면 마찰력도 존재하므로 임계 각도가 더 낮아질 것이라는 '모델의 한계 분석'을 보고서에 추가할 수 있습니다.</p>
             </div>
         </div>
 
@@ -151,7 +164,7 @@
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // 사다리 가로 발판들 (삼각함수 내분점 활용 시각화)
+            // 사다리 가로 발판들
             const steps = 6;
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 3;
@@ -160,7 +173,6 @@
                 let sx = floorX + (originX - floorX) * t;
                 let sy = originY + (wallY - originY) * t;
                 
-                // 간단한 가로선 표시
                 ctx.beginPath();
                 ctx.arc(sx, sy, 3, 0, Math.PI * 2);
                 ctx.fillStyle = '#1e293b';
@@ -175,7 +187,7 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.fillStyle = '#f59e0b';
-                ctx.font = '14px sans-serif';
+                ctx.font = '16px sans-serif';
                 ctx.fillText("θ", floorX - 45, originY - 10);
             }
         }
