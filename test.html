@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>사다리 미끄러짐 임계각 수학적 시뮬레이터</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #0f172a; margin-bottom: 5px; }
+        .container { display: flex; gap: 30px; max-width: 1200px; width: 100%; margin-top: 20px; }
+        .control-panel { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .display-panel { flex: 1.5; display: flex; flex-direction: column; gap: 20px; }
+        .canvas-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); display: flex; justify-content: center; position: relative; }
+        .data-box { background: #f1f5f9; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px; margin-top: 15px; }
+        .slider-group { margin-bottom: 18px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: bold; margin-top: 10px; }
+        .safe { background-color: #dcfce7; color: #15803d; }
+        .danger { background-color: #fee2e2; color: #b91c1c; }
+        .math-note { background: #fef3c7; border-left: 4px solid #d97706; padding: 15px; margin-top: 20px; border-radius: 0 8px 8px 0; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1>사다리 미끄러짐 임계각($\tan\theta$) 시뮬레이터</h1>
+    <p>정역학적 평형 상태와 삼각비를 활용한 사다리의 미끄러짐 임계 조건 수리 모델링</p>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>📊 조절 변수 (Input)</h3>
+            <div class="slider-group">
+                <label>사다리 각도 ($\theta$): <span id="angleVal">60</span>°</label>
+                <input type="range" id="angleSlider" min="15" max="85" value="60">
+            </div>
+            <div class="slider-group">
+                <label>바닥의 정지 마찰 계수 ($\mu$): <span id="muVal">0.40</span></label>
+                <input type="range" id="muSlider" min="0.1" max="0.8" step="0.05" value="0.4">
+            </div>
+
+            <h3>📈 실시간 삼각비 데이터 (Output)</h3>
+            <div id="statusBadge" class="status-badge safe">안전 보장 (평형 상태)</div>
+            
+            <div class="data-box">
+                <div>• $\sin\theta$ (수직 벽 반력 관련): <span id="dataSin">0.0000</span></div>
+                <div>• $\cos\theta$ (바닥 마찰력 관련): <span id="dataCos">0.0000</span></div>
+                <div>• 현재 $\tan\theta$ ($\sin\theta / \cos\theta$): <span id="dataTan">0.0000</span></div>
+                <div>• <b>미끄러짐 임계 조건 ($\frac{1}{2\mu}$):</b> <span id="dataLimit">0.0000</span></div>
+            </div>
+
+            <div class="math-note">
+                <h4>💡 세특용 수학적 해석 포인트</h4>
+                <p><b>1. 탄젠트($\tan\theta$)의 조건 도출:</b> 사다리에 작용하는 알짜힘과 토크(돌림힘)가 0인 정역학적 평형 상태를 수식화하면, 미끄러지지 않을 극한 조건은 <b>$\tan\theta \ge \frac{1}{2\mu}$</b>로 귀결됩니다.</p>
+                <p><b>2. 모델의 한계 및 확장:</b> 본 모델은 벽면의 마찰을 0으로 가정한 이상적 모델입니다. 실제 환경에서는 벽면 마찰력도 존재하므로 임계 각도가 더 낮아질 것이라는 '모델의 한계 분석'을 보고서에 추가할 수 있습니다.</p>
+            </div>
+        </div>
+
+        <div class="display-panel">
+            <div class="canvas-container">
+                <canvas id="ladderCanvas" width="500" height="450"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('ladderCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const angleSlider = document.getElementById('angleSlider');
+        const muSlider = document.getElementById('muSlider');
+        const angleVal = document.getElementById('angleVal');
+        const muVal = document.getElementById('muVal');
+
+        const dataSin = document.getElementById('dataSin');
+        const dataCos = document.getElementById('dataCos');
+        const dataTan = document.getElementById('dataTan');
+        const dataLimit = document.getElementById('dataLimit');
+        const statusBadge = document.getElementById('statusBadge');
+
+        const originX = 100; // 바닥-벽 모서리 좌표
+        const originY = 380;
+        const ladderLength = 300; // 사다리 길이
+
+        // 미끄러짐 애니메이션용 변수
+        let isSlipped = false;
+        let slipProgress = 0;
+
+        function updateSimulation() {
+            const angleDeg = parseFloat(angleSlider.value);
+            const angleRad = (angleDeg * Math.PI) / 180;
+            const mu = parseFloat(muSlider.value);
+
+            // 삼각비 계산
+            const s = Math.sin(angleRad);
+            const c = Math.cos(angleRad);
+            const t = Math.tan(angleRad);
+            const limit = 1 / (2 * mu);
+
+            // 데이터 갱신
+            dataSin.innerText = s.toFixed(4);
+            dataCos.innerText = c.toFixed(4);
+            dataTan.innerText = t.toFixed(4);
+            dataLimit.innerText = limit.toFixed(4);
+
+            // 미끄러짐 조건 판단
+            if (t < limit) {
+                if (!isSlipped) {
+                    isSlipped = true;
+                    slipProgress = 0;
+                }
+                statusBadge.innerText = "⚠️ 미끄러짐 발생 (임계값 도달)";
+                statusBadge.className = "status-badge danger";
+            } else {
+                isSlipped = false;
+                statusBadge.innerText = "✅ 안전 보장 (평형 상태)";
+                statusBadge.className = "status-badge safe";
+            }
+
+            draw(angleRad);
+        }
+
+        function draw(angleRad) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 벽과 바닥 그리기
+            ctx.beginPath();
+            ctx.moveTo(originX, 50);
+            ctx.lineTo(originX, originY);
+            ctx.lineTo(canvas.width - 50, originY);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            // 사다리 위치 계산 (기본 상태)
+            let wallY = originY - ladderLength * Math.sin(angleRad);
+            let floorX = originX + ladderLength * Math.cos(angleRad);
+
+            // 미끄러지는 애니메이션 효과
+            if (isSlipped) {
+                if (slipProgress < 1) slipProgress += 0.05;
+                // 미끄러질 때: 벽을 타고 내려오고 바닥은 밀려남
+                wallY = wallY + (originY - wallY) * 0.8 * slipProgress;
+                floorX = floorX + (canvas.width - 100 - floorX) * 0.4 * slipProgress;
+            }
+
+            // 사다리 그리기
+            ctx.beginPath();
+            ctx.moveTo(floorX, originY);
+            ctx.lineTo(originX, wallY);
+            ctx.strokeStyle = isSlipped ? '#ef4444' : '#3b82f6';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // 사다리 가로 발판들 (삼각함수 내분점 활용 시각화)
+            const steps = 6;
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3;
+            for (let i = 1; i < steps; i++) {
+                let t = i / steps;
+                let sx = floorX + (originX - floorX) * t;
+                let sy = originY + (wallY - originY) * t;
+                
+                // 간단한 가로선 표시
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+            }
+
+            // 각도 표시 (미끄러지지 않았을 때만)
+            if (!isSlipped) {
+                ctx.beginPath();
+                ctx.arc(floorX, originY, 30, Math.PI, Math.PI + angleRad, false);
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '14px sans-serif';
+                ctx.fillText("θ", floorX - 45, originY - 10);
+            }
+        }
+
+        angleSlider.addEventListener('input', (e) => {
+            angleVal.innerText = e.target.value;
+            updateSimulation();
+        });
+
+        muSlider.addEventListener('input', (e) => {
+            muVal.innerText = parseFloat(e.target.value).toFixed(2);
+            updateSimulation();
+        });
+
+        // 초기 실행
+        setInterval(updateSimulation, 30);
+    </script>
+</body>
+</html>
